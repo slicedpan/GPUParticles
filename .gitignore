@@ -31,5 +31,6 @@ obj/
 Ankh.NoLoad
 *.exe
 *.pdb
+*.dll
 
 #Tooling
