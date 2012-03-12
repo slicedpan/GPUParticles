@@ -29,5 +29,7 @@ obj/
 [Dd]ebug*/
 [Rr]elease*/
 Ankh.NoLoad
+*.exe
+*.pdb
 
 #Tooling

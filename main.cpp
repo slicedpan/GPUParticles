@@ -1,5 +1,6 @@
 #include <GL\glew.h>
 #include <GL\glfw.h>
+#include "Uniform.h"
 
 bool running = true;
 
@@ -25,6 +26,14 @@ void display()
 	glfwSwapBuffers();
 }
 
+GLuint CreateVBO()
+{
+	GLuint id;
+	float vertices[] = {0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0}; 
+	glGenBuffers(1, &id);
+	return id;
+}
+
 int Exit()
 {
 	running = false;
@@ -35,6 +44,8 @@ int main(int argc, char**argv)
 {
 	if(!glfwInit())
 		return 1;
+
+	Uniform* uniform = new Uniform();
 
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 0);
