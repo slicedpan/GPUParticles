@@ -47,7 +47,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>GLUtils.lib;opengl32.lib;glutil.lib;GLFW_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>GLUtils.lib;glew32.lib;opengl32.lib;GLFW_d.lib;FPSCamera.lib;svl_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)/Debug</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
