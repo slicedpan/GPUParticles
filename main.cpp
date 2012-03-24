@@ -6,33 +6,41 @@
 #include <FPSCamera\FPSCamera.h>
 #include <FPSCamera\CameraController.h>
 #include "FrameBufferObject.h"
+#include "QuadDrawer.h"
 #include <cstdlib>
 #include <math.h>
 
 bool running = true;
 bool limitFPS = true;
+bool simulate = false;
 
 #define BUFFER_OFFSET(i) ((char*)NULL + i)
 
-void CreateVBOs();
+void CreateVAO();
 void CreateTexture();
 
 unsigned int vertexBuf;
 unsigned int indexBuf;
+unsigned int vaoID;
 
 int width = 800;
 int height = 600;
 
+double elapsedTime = 0.0;
+
+
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 1024;
+int rootParticleNum = 16;
 
 FPSCamera* camera;
 CameraController* controller;
 
 Shader* particleRenderer;
 Shader* copyTex;
+Shader* verlet;
+Shader* addTex;
 ShaderManager* shaderManager;
 
 Mat4 Projection;
@@ -45,20 +53,42 @@ GLuint texID;
 
 double lastTime;
 
+Vec2 bufPixSize(1.0f / rootParticleNum, 1.0f / rootParticleNum);
+
 float RandomFloat()
 {
 	return (float)rand() / RAND_MAX;
 }
 
-FrameBufferObject* FBO;
+FrameBufferObject* fbos[3];
+
+unsigned int position = 2;
+unsigned int lastPosition = 1;
+unsigned int temp = 0;
+
+void Increment()
+{
+	++position;
+	position %= 3;
+	++lastPosition;
+	lastPosition %= 3;
+	++temp;
+	temp %= 3;
+}
 
 void CreateFBOs()
 {
-	FBO = new FrameBufferObject(1024, 1024, 0, 0, GL_RGBA16F, GL_TEXTURE_2D);
-	FBO->AttachTexture("first");
-	if (!FBO->CheckCompleteness())
-		throw;
+	for (int i = 0; i < 3; ++i)
+	{
+		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGB32F, GL_TEXTURE_2D);
+		fbos[i]->AttachTexture("position", GL_NEAREST, GL_NEAREST);
+		if (!fbos[i]->CheckCompleteness())
+			throw;
+	}
 }
+
+float top = 1.0f;
+float right = 1.0f;
 
 void setup()
 {
@@ -80,14 +110,67 @@ void setup()
 	}
 	particleRenderer = new Shader("Assets/Shaders/particleRender.vert", "Assets/Shaders/particleRender.frag", "particleRenderer");
 	copyTex = new Shader("Assets/Shaders/copy.vert", "Assets/Shaders/copy.frag", "Copy");
+	verlet = new Shader("Assets/Shaders/copy.vert", "Assets/Shaders/verlet.frag", "Verlet Integrator");
+	addTex = new Shader("Assets/Shaders/copy.vert", "Assets/Shaders/add.frag", "Add textures");
 	ShaderManager::GetSingletonPtr()->CompileShaders();
 	CreateFBOs();
-	CreateVBOs();
+	CreateVAO();
 	CreateTexture();	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texID);
+	
+	
 	memset(keyState, 0, sizeof(bool) * 256);
 	memset(lastKeyState, 0, sizeof(bool) * 256);	
+}
+
+void Simulate()
+{
+	fbos[temp]->Bind();
+
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, fbos[position]->GetTexture(0));
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, fbos[lastPosition]->GetTexture(0));
+
+	verlet->Use();
+	verlet->Uniforms("timeElapsed").SetValue((float)elapsedTime);
+	verlet->Uniforms("posTex").SetValue(0);
+	verlet->Uniforms("lastPosTex").SetValue(1);
+
+	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
+
+	fbos[temp]->Unbind();
+
+	Increment();
+}
+
+
+unsigned int velTex;
+
+void CopyTexToFBO()
+{
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texID);	
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, velTex);
+	
+	copyTex->Use();
+	copyTex->Uniforms("baseTex").SetValue(0);
+
+	fbos[position]->Bind();
+	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
+	fbos[position]->Unbind();
+
+	addTex->Use();
+	addTex->Uniforms("baseTex").SetValue(0);
+	addTex->Uniforms("addTex").SetValue(1);
+
+	fbos[lastPosition]->Bind();
+	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
+	fbos[lastPosition]->Unbind();
+	
 }
 
 void CreateTexture()
@@ -103,6 +186,21 @@ void CreateTexture()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, rootParticleNum, rootParticleNum, 0, GL_RGB, GL_FLOAT, data);
+
+	free(data);
+
+	data = (float*)malloc(sizeof(float) *numFloats);
+	for (int i = 0; i < numFloats; ++i)
+	{
+		data[i] = RandomFloat() / 1000.0f;
+	}
+	glGenTextures(1, &velTex);
+	glBindTexture(GL_TEXTURE_2D, velTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, rootParticleNum, rootParticleNum, 0, GL_RGB, GL_FLOAT, data);
+
+	free(data);
 }
 
 double frameBegin;
@@ -115,7 +213,7 @@ void update()
 {
 	++frameCount;
 	frameBegin = glfwGetTime();
-	double elapsedTime = frameBegin - lastTime;
+	elapsedTime = frameBegin - lastTime;
 	timeCount += elapsedTime;
 	if (timeCount > 1.0)
 	{
@@ -148,24 +246,15 @@ void update()
 
 void display()
 {
+
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glBindBuffer(GL_VERTEX_ARRAY, vertexBuf);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, false, 8, BUFFER_OFFSET(0));
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);	
-	particleRenderer->Use();
-	glBindTexture(GL_TEXTURE_2D, texID);
-	particleRenderer->Uniforms("positionTex").SetValue(0);
-	particleRenderer->Uniforms("rows").SetValue(rootParticleNum);
-	particleRenderer->Uniforms("View").SetValue(camera->GetViewTransform());
-	particleRenderer->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
-	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0, rootParticleNum * rootParticleNum);
 
-	FBO->Bind();
-
-	glClear(GL_COLOR_BUFFER_BIT);
-
+	if (simulate)
+	{
+		Simulate();
+	}
+	
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glMultMatrixf(camera->GetProjectionMatrix().Ref());
@@ -186,20 +275,32 @@ void display()
 	glVertex3f(0.0, 0.0, 0.0);
 	glVertex3f(0.0, 0.0, 1.0);
 	glEnd();
+	
+	glBindVertexArray(vaoID);	
+	particleRenderer->Use();
+	glBindTexture(GL_TEXTURE_2D, fbos[position]->GetTexture(0));
+	particleRenderer->Uniforms("positionTex").SetValue(0);
+	particleRenderer->Uniforms("rows").SetValue(rootParticleNum);
+	particleRenderer->Uniforms("View").SetValue(camera->GetViewTransform());
+	particleRenderer->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
+	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0, rootParticleNum * rootParticleNum);
+	glBindVertexArray(0);
 
-	FBO->Unbind();
-
-	glBindTexture(GL_TEXTURE_2D, FBO->GetTexture("first"));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, fbos[position]->GetTexture(0));
 
 	copyTex->Use();
 	copyTex->Uniforms("baseTex").SetValue(0);
 
-	glBegin(GL_QUADS);
-	glVertex2f(0.0, 0.0);
-	glVertex2f(0.0, 1.0);
-	glVertex2f(1.0, 1.0);
-	glVertex2f(1.0, 0.0);
-	glEnd();
+	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(-0.5, -0.5));
+
+	glBindTexture(GL_TEXTURE_2D, fbos[lastPosition]->GetTexture(0));	
+
+	QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));
+
+	glBindTexture(GL_TEXTURE_2D, fbos[temp]->GetTexture(0));
+
+	QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 
 	if (limitFPS) 
 		glfwSleep(0.016 - glfwGetTime() + frameBegin);
@@ -210,19 +311,23 @@ void display()
 
 unsigned short indices[] = {0, 1, 2, 0, 2, 3};
 
-void CreateVBOs()
+void CreateVAO()
 {
 	GLuint id;
 	float vertices[] = {0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0}; 
 	GLsizeiptr vSize = sizeof(float) * 8;
 	glGenBuffers(1, &vertexBuf);
 	glGenBuffers(1, &indexBuf);
+	glGenVertexArrays(1, &vaoID);
+	glBindVertexArray(vaoID);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuf);
 	glBufferData(GL_ARRAY_BUFFER, vSize, (void*)vertices, GL_STATIC_DRAW);	
-
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, false, sizeof(float) * 2, (void*)0);
 	vSize = sizeof(unsigned short) * 6;
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuf);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, vSize, indices, GL_STATIC_DRAW);
+	glBindVertexArray(0);
 }
 
 int Exit()
@@ -255,6 +360,15 @@ void KeyboardHandler(int keyCode, int state)
 		limitFPS = !limitFPS;
 	if (keyCode == GLFW_KEY_ESC)
 		Exit();
+	if (state == GLFW_PRESS)
+	{
+		if (keyCode == 'L')
+			CopyTexToFBO();
+		if (keyCode == 'T')
+			simulate = !simulate;
+		if (keyCode == 'Y')
+			Simulate();
+	}
 }
 
 void MouseMovementHandler(int x, int y)
@@ -279,8 +393,8 @@ int main(int argc, char**argv)
 
 	lastTime = glfwGetTime();
 
-	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 4);
-	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
+	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
+	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 3);
 
 	if (!glfwOpenWindow(800, 600, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
 		return 1;
