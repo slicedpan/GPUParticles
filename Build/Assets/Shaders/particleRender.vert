@@ -8,22 +8,22 @@ out float baseAlpha;
 uniform sampler2D positionTex;
 uniform sampler2D lastPositionTex;
 uniform int rows;
-uniform mat4 View;
-uniform mat4 Projection;
+uniform mat4 viewProj;
+uniform float quadSize = 0.05;
 
 uniform float maxLifeTime = 30.0;
 
 void main()
 {	
 	fragTexCoord = coord;
-	vec2 pos = coord * 0.05;
+	vec2 pos = coord * quadSize;
 	int x = gl_InstanceID  % rows;
 	int y = gl_InstanceID  / rows;
-	vec2 texCoord = vec2((x + 0.5) / rows, (y + 0.5) / rows);
+	vec2 texCoord = vec2(float(x) / rows, float(y) / rows);
 	vec4 position = texture(positionTex, texCoord);
 	vec4 offset = vec4(position.xyz, 1.0);
 	colour = position.a;	
-	offset = Projection * View * offset;	
+	offset = viewProj * offset;	
 	baseAlpha = texture(lastPositionTex, texCoord).a / maxLifeTime;
 	gl_Position = offset + vec4(pos.x, pos.y, 0.0, 0.0);
 } 

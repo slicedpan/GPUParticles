@@ -17,12 +17,15 @@ bool limitFPS = true;
 bool simulate = false;
 bool drawFBOS = false;
 
+double avgSleepTime;
+
 #define BUFFER_OFFSET(i) ((char*)NULL + i)
 
 void CreateVAO();
 void CreateTextures();
 void LoadTexture();
 void InjectParticles();
+void SetStaticUniforms();
 
 unsigned int vertexBuf;
 unsigned int indexBuf;
@@ -64,6 +67,8 @@ GLuint colorTex;
 GLuint velTex;
 GLuint maskTex;
 BasicTexture* noiseTex;
+
+float particleQuadSize = 0.05;
 
 double lastTime;
 
@@ -146,6 +151,7 @@ void setup()
 	CreateVAO();
 	CreateTextures();	
 	LoadTexture();
+	SetStaticUniforms();
 	
 	memset(keyState, 0, sizeof(bool) * 256);
 	memset(lastKeyState, 0, sizeof(bool) * 256);	
@@ -165,8 +171,7 @@ void Simulate()
 
 	verlet->Use();
 	verlet->Uniforms("timeElapsed").SetValue((float)elapsedTime);
-	verlet->Uniforms("posTex").SetValue(0);
-	verlet->Uniforms("lastPosTex").SetValue(1);
+	verlet->Uniforms("timeElapsedSquared").SetValue((float)(elapsedTime * elapsedTime));
 
 	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
 
@@ -255,19 +260,35 @@ void LoadTexture()
 	free(newData);
 }
 
+void SetStaticUniforms()
+{
+	injectParticle->Use();
+	injectParticle->Uniforms("texSide").SetValue(rootParticleNum);
+	injectParticle->Uniforms("noiseSize").SetValue(256);
+	injectParticle->Uniforms("noiseTex").SetValue(0);
+
+	particleRenderer->Use();
+	particleRenderer->Uniforms("positionTex").SetValue(0);
+	particleRenderer->Uniforms("maskTex").SetValue(1);
+	particleRenderer->Uniforms("lastPositionTex").SetValue(2);
+	particleRenderer->Uniforms("rows").SetValue(rootParticleNum);
+	particleRenderer->Uniforms("maxLifeTime").SetValue(10.0f);
+
+	verlet->Use();
+	verlet->Uniforms("posTex").SetValue(0);
+	verlet->Uniforms("lastPosTex").SetValue(1);
+}
+
 void InjectParticles()
 {
 	fbos[currentBuf]->Bind();
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, noiseTex->GetId());
-	injectParticle->Use();
-	injectParticle->Uniforms("texSide").SetValue(rootParticleNum);
+	injectParticle->Use();	
 	injectParticle->Uniforms("particleNum").SetValue((int)lastParticle);
-	injectParticle->Uniforms("position").SetValue(Vec3(0.0f, 0.5f, 1.0f) + randomVec(0.1f));
-	injectParticle->Uniforms("velocity").SetValue(Vec3(0.01f, 0.0f, 0.0f) + randomVec(0.001f));
-	injectParticle->Uniforms("maxLifeTime").SetValue(10.0f);
-	injectParticle->Uniforms("noiseSize").SetValue(256);
-	injectParticle->Uniforms("noiseTex").SetValue(0);
+	injectParticle->Uniforms("position").SetValue(Vec3(0.0f, 0.5f, 1.0f) + randomVec(0.01f));
+	injectParticle->Uniforms("velocity").SetValue(Vec3(0.05f, 0.02f, 0.0f) + randomVec(0.001f));
+	injectParticle->Uniforms("maxLifeTime").SetValue(10.0f);	
 	glBindVertexArray(vaoID);
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0, particlesPerFrame);
 	glBindVertexArray(0);
@@ -296,7 +317,7 @@ void update()
 		frameCount = 0;
 		timeCount = 0.0;
 		char buf[100];
-		sprintf(buf, "FPS: %d, GL Version %d.%d, rev %d", currentFps, glMajorVersion, glMinorVersion, glRev);
+		sprintf(buf, "FPS: %d, GL Version %d.%d, rev %d, elapsedTime: %f, elapsedTimeSquared: %lf", currentFps, glMajorVersion, glMinorVersion, glRev, elapsedTime, (float)(elapsedTime * elapsedTime));
 		glfwSetWindowTitle(buf);
 	}
 	if (keyState['W'])
@@ -362,13 +383,9 @@ void display()
 	glBindTexture(GL_TEXTURE_2D, maskTex);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
-	particleRenderer->Uniforms("positionTex").SetValue(0);
-	particleRenderer->Uniforms("maskTex").SetValue(1);
-	particleRenderer->Uniforms("lastPositionTex").SetValue(2);
-	particleRenderer->Uniforms("rows").SetValue(rootParticleNum);
-	particleRenderer->Uniforms("View").SetValue(camera->GetViewTransform());
-	particleRenderer->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
-	particleRenderer->Uniforms("maxLifeTime").SetValue(10.0f);
+	
+	particleRenderer->Uniforms("viewProj").SetValue(camera->GetViewTransform() * camera->GetProjectionMatrix());
+	particleRenderer->Uniforms("quadSize").SetValue(particleQuadSize);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -393,8 +410,11 @@ void display()
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
 
-	if (limitFPS) 
-		glfwSleep(0.016 - glfwGetTime() + frameBegin);
+	if (limitFPS)
+	{
+		avgSleepTime = 0.016 - glfwGetTime() + frameBegin;
+		glfwSleep(avgSleepTime);
+	}
 	lastTime = frameBegin;
 
 	glfwSwapBuffers();
@@ -435,7 +455,10 @@ void KeyboardHandler(int keyCode, int state)
 {
 	keyState[keyCode] = state;
 	if (keyCode == 'R' && state == GLFW_PRESS)
+	{
 		ShaderManager::GetSingletonPtr()->ReloadShaders();
+		SetStaticUniforms();
+	}
 	if (keyCode == 'M' && state == GLFW_PRESS)
 	{
 		if (mouseEnabled)		
@@ -461,6 +484,10 @@ void KeyboardHandler(int keyCode, int state)
 			Simulate();
 		if (keyCode == 'G')
 			drawFBOS = !drawFBOS;
+		if (keyCode == GLFW_KEY_UP)
+			particleQuadSize += 0.001;
+		if (keyCode == GLFW_KEY_DOWN)
+			particleQuadSize -= 0.001;
 	}
 }
 

@@ -7,8 +7,8 @@ in float baseAlpha;
 
 uniform sampler2D positionTex;
 uniform sampler2D maskTex;
-uniform vec3 colour1 = vec3(1.0, 0.0, 0.0);
-uniform vec3 colour2 = vec3(0.6, 0.9, 0.1);
+uniform vec3 colour1 = vec3(0.0, 0.8, 0.3);
+uniform vec3 colour2 = vec3(0.0, 0.0, 1.0);
 
 void main()
 {	

@@ -8,6 +8,9 @@ smooth in vec2 fragTexCoord;
 uniform sampler2D posTex;
 uniform sampler2D lastPosTex;
 uniform float timeElapsed;
+uniform float timeElapsedSquared;
+
+uniform vec3 normal = vec3(0.0, 1.0, 0.0);
 
 void main()
 {	
@@ -21,14 +24,18 @@ void main()
 	newPosition.a = currentPos.a;	//this is the particles colour value	
 		
 	vec3 vel = (currentPos.xyz - lastPos.xyz);
+	float groundPen = max(-currentPos.y, 0.0);
+	groundPen = min(groundPen * 100000, 1.0);
+	vel -= normal * dot(vel, normal) * groundPen;
+	vel += normal * groundPen * timeElapsed;
 	
 	/*vec3 d = currentPos.xyz - vec3(0, 0.5, 0);
 	vec3 accel = -(10 * d) / length(d);*/
 	
 	vec3 accel = vec3(0, -10, 0);
-	float groundPen = max(-currentPos.y, 0.0);
-	accel += vec3(0, 1000 * groundPen, 0);
-	newPosition.xyz = currentPos.xyz + vel + accel * 0.000256;	
+	accel -= accel * groundPen;
+	
+	newPosition.xyz = currentPos.xyz + vel + accel * timeElapsedSquared;	
 	newLastPosition.a = lastPos.a - timeElapsed;	//lifetime
 }
 

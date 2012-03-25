@@ -19,8 +19,8 @@ void main()
 	float noiseCoordy = currentNum / noiseSize;
 	vec3 velNoise = texture(noiseTex, vec2(noiseCoordx / noiseSize, noiseCoordy / noiseSize)).xyz;
 	
-	out_position.xyz = position + velNoise * 0.1;
-	out_lastPosition.xyz = position - velocity + velNoise * 0.01;
+	out_position.xyz = position + velNoise * 0.06;
+	out_lastPosition.xyz = position - velocity + velNoise * 0.05;
 	out_position.a = colourValue;
-	out_lastPosition.a = maxLifeTime;
+	out_lastPosition.a = maxLifeTime * 2.0;
 }
