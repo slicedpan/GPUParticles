@@ -1,13 +1,15 @@
 #version 130
 
-in vec2 coord;
-out vec2 texCoord;
+layout(location = 0) in vec2 coord;
+layout(location = 1) in vec2 texCoord;
+
+out vec2 fragTexCoord;
 
 uniform vec2 pixSize;
 uniform sampler2D baseTex;
 
 void main()
-{		
-	texCoord = coord / 2.0 + 0.5 + pixSize;
+{	
+	fragTexCoord = coord;
 	gl_Position = vec4(coord.x, coord.y, 0.0, 1.0);
 } 

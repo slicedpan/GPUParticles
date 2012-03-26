@@ -6,6 +6,7 @@
 #include <FPSCamera\FPSCamera.h>
 #include <FPSCamera\CameraController.h>
 #include "FrameBufferObject.h"
+#include "QuadDrawer.h"
 #include <cstdlib>
 #include <math.h>
 
@@ -44,6 +45,8 @@ int glRev;
 GLuint texID;
 
 double lastTime;
+
+
 
 float RandomFloat()
 {
@@ -143,7 +146,7 @@ void update()
 	controller->ChangeYaw(-elapsedTime * dX);
 	dY = 0;
 	dX = 0;
-	
+
 }
 
 void display()
@@ -193,13 +196,20 @@ void display()
 
 	copyTex->Use();
 	copyTex->Uniforms("baseTex").SetValue(0);
+	copyTex->Uniforms("pixSize").SetValue(Vec2(1.0 / rootParticleNum, 1.0 / rootParticleNum));
 
-	glBegin(GL_QUADS);
+	/*glBegin(GL_QUADS);
+	glTexCoord2f(0.0, 0.0);
 	glVertex2f(0.0, 0.0);
+	glTexCoord2f(0.0, 1.0);
 	glVertex2f(0.0, 1.0);
+	glTexCoord2f(1.0, 1.0);
 	glVertex2f(1.0, 1.0);
+	glTexCoord2f(1.0, 0.0);
 	glVertex2f(1.0, 0.0);
-	glEnd();
+	glEnd();*/
+
+	//QuadDrawer::DrawQuad(Vec2(1.0, 1.0), Vec2(0.0, 0.0));
 
 	if (limitFPS) 
 		glfwSleep(0.016 - glfwGetTime() + frameBegin);

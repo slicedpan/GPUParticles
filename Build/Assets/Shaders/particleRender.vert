@@ -1,6 +1,6 @@
 #version 130
 
-in vec2 coord;
+layout(location = 0) in vec2 coord;
 out vec3 colour;
 
 uniform sampler2D positionTex;
