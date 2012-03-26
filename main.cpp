@@ -240,6 +240,10 @@ void LoadTexture()
 {
 	int imgWidth, imgHeight, imgComps;
 	unsigned char* data = stbi_load("Assets/Textures/particlemask.png", &imgWidth, &imgHeight, &imgComps, 4);
+	if (!data)
+	{
+		printf("Could not load mask image");
+	}
 	unsigned char* newData = (unsigned char*)malloc(sizeof(unsigned char) * imgWidth * imgHeight);
 	for (int i = 0; i < imgWidth; ++i)
 	{
@@ -251,11 +255,43 @@ void LoadTexture()
 			*newDatPtr /= 3;
 		}
 	}
+	printf("\n");
+	for (int i = 0; i < imgWidth; ++i)
+	{
+
+		for (int j = 0; j < imgHeight; ++j)
+		{
+			printf("%d ", newData[j * imgWidth + i]);
+		}
+		printf("\n");
+	}
 	glGenTextures(1, &maskTex);
 	glBindTexture(GL_TEXTURE_2D, maskTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
+	memset(newData, 0, sizeof(unsigned char) * imgWidth * imgHeight);
+	float* fData = (float*)malloc(sizeof(float) * imgWidth * imgHeight);
+	for (int i = 0; i < imgWidth; ++i)
+	{
+
+		for (int j = 0; j < imgHeight; ++j)
+		{
+			fData[j * imgWidth + i] = 0.0f;
+		}
+		printf("\n");
+	}
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, fData);
+	printf("\n");
+	for (int i = 0; i < imgWidth; ++i)
+	{
+
+		for (int j = 0; j < imgHeight; ++j)
+		{
+			printf("%f ", fData[j * imgWidth + i]);
+		}
+		printf("\n");
+	}
 	stbi_image_free(data);
 	free(newData);
 }
