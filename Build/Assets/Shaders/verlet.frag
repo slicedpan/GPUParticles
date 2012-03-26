@@ -25,9 +25,10 @@ void main()
 		
 	vec3 vel = (currentPos.xyz - lastPos.xyz);
 	float groundPen = max(-currentPos.y, 0.0);
+	vec3 spotDist = vec3(0, groundPen, 0);
 	groundPen = min(groundPen * 100000, 1.0);
 	vel -= normal * dot(vel, normal) * groundPen;
-	vel += normal * groundPen * timeElapsed;
+	
 	
 	/*vec3 d = currentPos.xyz - vec3(0, 0.5, 0);
 	vec3 accel = -(10 * d) / length(d);*/
@@ -35,7 +36,7 @@ void main()
 	vec3 accel = vec3(0, -10, 0);
 	accel -= accel * groundPen;
 	
-	newPosition.xyz = currentPos.xyz + vel + accel * timeElapsedSquared;	
+	newPosition.xyz = currentPos.xyz + vel + accel * timeElapsedSquared + spotDist;	
 	newLastPosition.a = lastPos.a - timeElapsed;	//lifetime
 }
 

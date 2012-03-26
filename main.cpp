@@ -42,7 +42,7 @@ double elapsedTime = 0.0;
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 196;
+int rootParticleNum = 16;
 
 FPSCamera* camera;
 CameraController* controller;
@@ -109,14 +109,14 @@ void CreateFBOs()
 {
 	for (int i = 0; i < 2; ++i)
 	{
-		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGBA16F, GL_TEXTURE_2D);
+		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGBA32F, GL_TEXTURE_2D);
 		fbos[i]->AttachTexture("position", GL_NEAREST, GL_NEAREST);
 		fbos[i]->AttachTexture("last", GL_NEAREST, GL_NEAREST);
 		if (!fbos[i]->CheckCompleteness())
 			throw;
 	}
 }
-
+	
 float top = 1.0f;
 float right = 1.0f;
 
