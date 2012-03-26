@@ -352,6 +352,8 @@ void display()
 	{
 		Simulate();
 	}
+
+	/*
 	
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -374,7 +376,8 @@ void display()
 	glVertex3f(0.0, 0.0, 0.0);
 	glVertex3f(0.0, 0.0, 1.0);
 	glEnd();
-	
+	*/
+
 	glBindVertexArray(vaoID);	
 	particleRenderer->Use();
 	glActiveTexture(GL_TEXTURE0);
@@ -405,7 +408,7 @@ void display()
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, maskTex); //fbos[currentBuf]->GetTexture(1));
+		glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
