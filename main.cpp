@@ -270,7 +270,7 @@ void LoadTexture()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glGetError();
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
 	GLenum error = glGetError();
 	printf("Error: %d", error);
 	memset(newData, 0, sizeof(unsigned char) * imgWidth * imgHeight);
