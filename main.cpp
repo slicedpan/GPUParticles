@@ -272,7 +272,7 @@ void LoadTexture()
 	glGetError();
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
 	GLenum error = glGetError();
-	printf("Error: %s", glewGetErrorString(error));
+	printf("Error: %d", error);
 	memset(newData, 0, sizeof(unsigned char) * imgWidth * imgHeight);
 	float* fData = (float*)malloc(sizeof(float) * imgWidth * imgHeight);
 	for (int i = 0; i < imgWidth; ++i)
