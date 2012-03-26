@@ -269,7 +269,10 @@ void LoadTexture()
 	glBindTexture(GL_TEXTURE_2D, maskTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
+	glGetError();
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
+	GLenum error = glGetError();
+	printf("Error: %s", glewGetErrorString(error));
 	memset(newData, 0, sizeof(unsigned char) * imgWidth * imgHeight);
 	float* fData = (float*)malloc(sizeof(float) * imgWidth * imgHeight);
 	for (int i = 0; i < imgWidth; ++i)
