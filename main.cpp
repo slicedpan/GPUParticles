@@ -353,7 +353,7 @@ void display()
 		Simulate();
 	}
 
-	/*
+	
 	
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -376,7 +376,7 @@ void display()
 	glVertex3f(0.0, 0.0, 0.0);
 	glVertex3f(0.0, 0.0, 1.0);
 	glEnd();
-	*/
+	
 
 	glBindVertexArray(vaoID);	
 	particleRenderer->Use();
@@ -408,7 +408,7 @@ void display()
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
+		glBindTexture(GL_TEXTURE_2D, maskTex);
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
@@ -520,9 +520,7 @@ int main(int argc, char**argv)
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 3);
 
 	if (!glfwOpenWindow(800, 600, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
-		return 1;
-
-	
+		return 1;	
 
 	glfwGetGLVersion(&glMajorVersion, &glMinorVersion, &glRev);
 
