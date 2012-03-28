@@ -42,7 +42,7 @@ double elapsedTime = 0.0;
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 384;
+int rootParticleNum = 16;
 
 FPSCamera* camera;
 CameraController* controller;
@@ -109,14 +109,14 @@ void CreateFBOs()
 {
 	for (int i = 0; i < 2; ++i)
 	{
-		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGBA16F, GL_TEXTURE_2D);
+		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGBA32F, GL_TEXTURE_2D);
 		fbos[i]->AttachTexture("position", GL_NEAREST, GL_NEAREST);
 		fbos[i]->AttachTexture("last", GL_NEAREST, GL_NEAREST);
 		if (!fbos[i]->CheckCompleteness())
 			throw;
 	}
 }
-
+	
 float top = 1.0f;
 float right = 1.0f;
 
@@ -240,6 +240,10 @@ void LoadTexture()
 {
 	int imgWidth, imgHeight, imgComps;
 	unsigned char* data = stbi_load("Assets/Textures/particlemask.png", &imgWidth, &imgHeight, &imgComps, 4);
+	if (!data)
+	{
+		printf("Could not load mask image");
+	}
 	unsigned char* newData = (unsigned char*)malloc(sizeof(unsigned char) * imgWidth * imgHeight);
 	for (int i = 0; i < imgWidth; ++i)
 	{
@@ -251,11 +255,46 @@ void LoadTexture()
 			*newDatPtr /= 3;
 		}
 	}
+	printf("\n");
+	for (int i = 0; i < imgWidth; ++i)
+	{
+
+		for (int j = 0; j < imgHeight; ++j)
+		{
+			printf("%d ", newData[j * imgWidth + i]);
+		}
+		printf("\n");
+	}
 	glGenTextures(1, &maskTex);
 	glBindTexture(GL_TEXTURE_2D, maskTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glGetError();
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
+	GLenum error = glGetError();
+	printf("Error: %d", error);
+	memset(newData, 0, sizeof(unsigned char) * imgWidth * imgHeight);
+	float* fData = (float*)malloc(sizeof(float) * imgWidth * imgHeight);
+	for (int i = 0; i < imgWidth; ++i)
+	{
+
+		for (int j = 0; j < imgHeight; ++j)
+		{
+			fData[j * imgWidth + i] = 0.0f;
+		}
+		printf("\n");
+	}
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, fData);
+	printf("\n");
+	for (int i = 0; i < imgWidth; ++i)
+	{
+
+		for (int j = 0; j < imgHeight; ++j)
+		{
+			printf("%f ", fData[j * imgWidth + i]);
+		}
+		printf("\n");
+	}
 	stbi_image_free(data);
 	free(newData);
 }
@@ -352,6 +391,8 @@ void display()
 	{
 		Simulate();
 	}
+
+	
 	
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -375,6 +416,7 @@ void display()
 	glVertex3f(0.0, 0.0, 1.0);
 	glEnd();
 	
+
 	glBindVertexArray(vaoID);	
 	particleRenderer->Use();
 	glActiveTexture(GL_TEXTURE0);
@@ -405,7 +447,7 @@ void display()
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, maskTex); //fbos[currentBuf]->GetTexture(1));
+		glBindTexture(GL_TEXTURE_2D, maskTex);
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
@@ -517,9 +559,7 @@ int main(int argc, char**argv)
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 3);
 
 	if (!glfwOpenWindow(800, 600, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
-		return 1;
-
-	
+		return 1;	
 
 	glfwGetGLVersion(&glMajorVersion, &glMinorVersion, &glRev);
 
