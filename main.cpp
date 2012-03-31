@@ -9,6 +9,7 @@
 #include "FrameBufferObject.h"
 #include "QuadDrawer.h"
 #include "stb_image.h"
+#include "VBOMesh.h"
 #include <cstdlib>
 #include <math.h>
 
@@ -31,8 +32,10 @@ unsigned int vertexBuf;
 unsigned int indexBuf;
 unsigned int vaoID;
 
-int width = 800;
-int height = 600;
+VBOMesh* teapotMesh;
+
+int width = 1280;
+int height = 720;
 
 unsigned int lastParticle = 0;
 unsigned int particlesPerFrame = 200;
@@ -42,7 +45,7 @@ double elapsedTime = 0.0;
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 16;
+int rootParticleNum = 1024;
 
 FPSCamera* camera;
 CameraController* controller;
@@ -53,6 +56,8 @@ Shader* verlet;
 Shader* addTex;
 Shader* initialiseParticles;
 Shader* injectParticle;
+Shader* basic;
+Shader* renderToGBuffer;
 
 ShaderManager* shaderManager;
 
@@ -67,6 +72,10 @@ GLuint colorTex;
 GLuint velTex;
 GLuint maskTex;
 BasicTexture* noiseTex;
+
+Mat4 teapotTransform;
+
+FrameBufferObject* gBuf;
 
 float particleQuadSize = 0.05;
 
@@ -127,6 +136,7 @@ void setup()
 	camera->Position[2] = 5.0f;
 	camera->Position[1] = 0.5f;
 	camera->Position[0] = 0.5f;
+	camera->SetAspectRatio((float)width / (float)height);
 	controller = new CameraController();
 	controller->SetCamera(camera);
 	controller->MaxSpeed = 0.01;
@@ -145,14 +155,22 @@ void setup()
 	initialiseParticles = new Shader("Assets/Shaders/copy.vert", "Assets/Shaders/copyToFbo.frag", "Particle Initialisation");
 	injectParticle = new Shader("Assets/Shaders/inject.vert", "Assets/Shaders/inject.frag", "Particle Inject");
 	noiseTex = new BasicTexture("Assets/Textures/rgbnoise.png");
+	basic = new Shader("Assets/Shaders/basic.vert", "Assets/Shaders/basic.frag", "Basic");
+	renderToGBuffer = new Shader("Assets/Shaders/gbuf.vert", "Assets/Shaders/gbuf.frag", "Render to GBuffer");
+	teapotMesh = new VBOMesh("Assets/Models/box.obj", false, true);
+	teapotMesh->Load();
 	noiseTex->Load();
 	ShaderManager::GetSingletonPtr()->CompileShaders();
+	gBuf = new FrameBufferObject(width, height, 24, 0, GL_RGBA16F, GL_TEXTURE_2D);
+	gBuf->AttachTexture("buf", GL_LINEAR, GL_LINEAR);
 	CreateFBOs();
 	CreateVAO();
 	CreateTextures();	
 	LoadTexture();
 	SetStaticUniforms();
-	
+
+	teapotTransform.MakeHScale(Vec3(10.0, 0.1, 10.0));	
+	teapotTransform *= HTrans4(Vec3(0.0f, -0.5f, 0.0f));
 	memset(keyState, 0, sizeof(bool) * 256);
 	memset(lastKeyState, 0, sizeof(bool) * 256);	
 }
@@ -169,9 +187,13 @@ void Simulate()
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
 
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, gBuf->GetTexture(0));
+
 	verlet->Use();
 	verlet->Uniforms("timeElapsed").SetValue((float)elapsedTime);
 	verlet->Uniforms("timeElapsedSquared").SetValue((float)(elapsedTime * elapsedTime));
+	verlet->Uniforms("viewProj").SetValue(camera->GetViewTransform() * camera->GetProjectionMatrix());
 
 	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
 
@@ -255,46 +277,11 @@ void LoadTexture()
 			*newDatPtr /= 3;
 		}
 	}
-	printf("\n");
-	for (int i = 0; i < imgWidth; ++i)
-	{
-
-		for (int j = 0; j < imgHeight; ++j)
-		{
-			printf("%d ", newData[j * imgWidth + i]);
-		}
-		printf("\n");
-	}
 	glGenTextures(1, &maskTex);
 	glBindTexture(GL_TEXTURE_2D, maskTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glGetError();
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
-	GLenum error = glGetError();
-	printf("Error: %d", error);
-	memset(newData, 0, sizeof(unsigned char) * imgWidth * imgHeight);
-	float* fData = (float*)malloc(sizeof(float) * imgWidth * imgHeight);
-	for (int i = 0; i < imgWidth; ++i)
-	{
-
-		for (int j = 0; j < imgHeight; ++j)
-		{
-			fData[j * imgWidth + i] = 0.0f;
-		}
-		printf("\n");
-	}
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, fData);
-	printf("\n");
-	for (int i = 0; i < imgWidth; ++i)
-	{
-
-		for (int j = 0; j < imgHeight; ++j)
-		{
-			printf("%f ", fData[j * imgWidth + i]);
-		}
-		printf("\n");
-	}
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_RED, GL_UNSIGNED_BYTE, newData);
 	stbi_image_free(data);
 	free(newData);
 }
@@ -316,6 +303,7 @@ void SetStaticUniforms()
 	verlet->Use();
 	verlet->Uniforms("posTex").SetValue(0);
 	verlet->Uniforms("lastPosTex").SetValue(1);
+	verlet->Uniforms("gBuf").SetValue(2);
 }
 
 void InjectParticles()
@@ -383,14 +371,11 @@ void update()
 
 void display()
 {
-
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClearDepth(1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	if (simulate)
-	{
-		Simulate();
-	}
 
 	
 	
@@ -415,7 +400,26 @@ void display()
 	glVertex3f(0.0, 0.0, 0.0);
 	glVertex3f(0.0, 0.0, 1.0);
 	glEnd();
-	
+
+	basic->Use();
+	basic->Uniforms("World").SetValue(teapotTransform);
+	basic->Uniforms("View").SetValue(camera->GetViewTransform());
+	basic->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
+	teapotMesh->Draw();
+
+	gBuf->Bind();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	renderToGBuffer->Use();
+	renderToGBuffer->Uniforms("World").SetValue(teapotTransform);
+	renderToGBuffer->Uniforms("View").SetValue(camera->GetViewTransform());
+	renderToGBuffer->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
+	teapotMesh->Draw();
+	gBuf->Unbind();
+
+	if (simulate)
+	{
+		Simulate();
+	}		
 
 	glBindVertexArray(vaoID);	
 	particleRenderer->Use();
@@ -430,6 +434,7 @@ void display()
 	particleRenderer->Uniforms("quadSize").SetValue(particleQuadSize);
 
 	glEnable(GL_BLEND);
+	glDepthMask(GL_FALSE);	
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0, rootParticleNum * rootParticleNum);
 	glBindVertexArray(0);
@@ -437,7 +442,8 @@ void display()
 
 	if (drawFBOS)
 	{
-
+		glDisable(GL_DEPTH_TEST);
+	
 		copyTex->Use();
 		copyTex->Uniforms("baseTex").SetValue(0);
 
@@ -447,7 +453,7 @@ void display()
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, maskTex);
+		glBindTexture(GL_TEXTURE_2D, gBuf->GetTexture(0));
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
@@ -558,7 +564,7 @@ int main(int argc, char**argv)
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 3);
 
-	if (!glfwOpenWindow(800, 600, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
+	if (!glfwOpenWindow(width, height, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
 		return 1;	
 
 	glfwGetGLVersion(&glMajorVersion, &glMinorVersion, &glRev);
