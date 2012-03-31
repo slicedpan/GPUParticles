@@ -38,14 +38,14 @@ int width = 1280;
 int height = 720;
 
 unsigned int lastParticle = 0;
-unsigned int particlesPerFrame = 200;
+unsigned int particlesPerFrame = 2000;
 
 double elapsedTime = 0.0;
 
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 1024;
+int rootParticleNum = 1536;
 
 FPSCamera* camera;
 CameraController* controller;
@@ -74,8 +74,6 @@ GLuint maskTex;
 BasicTexture* noiseTex;
 
 Mat4 teapotTransform;
-
-FrameBufferObject* gBuf;
 
 float particleQuadSize = 0.05;
 
@@ -161,8 +159,6 @@ void setup()
 	teapotMesh->Load();
 	noiseTex->Load();
 	ShaderManager::GetSingletonPtr()->CompileShaders();
-	gBuf = new FrameBufferObject(width, height, 24, 0, GL_RGBA16F, GL_TEXTURE_2D);
-	gBuf->AttachTexture("buf", GL_LINEAR, GL_LINEAR);
 	CreateFBOs();
 	CreateVAO();
 	CreateTextures();	
@@ -186,9 +182,6 @@ void Simulate()
 
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
-
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, gBuf->GetTexture(0));
 
 	verlet->Use();
 	verlet->Uniforms("timeElapsed").SetValue((float)elapsedTime);
@@ -407,15 +400,6 @@ void display()
 	basic->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
 	teapotMesh->Draw();
 
-	gBuf->Bind();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	renderToGBuffer->Use();
-	renderToGBuffer->Uniforms("World").SetValue(teapotTransform);
-	renderToGBuffer->Uniforms("View").SetValue(camera->GetViewTransform());
-	renderToGBuffer->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
-	teapotMesh->Draw();
-	gBuf->Unbind();
-
 	if (simulate)
 	{
 		Simulate();
@@ -453,7 +437,7 @@ void display()
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, gBuf->GetTexture(0));
+		glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
