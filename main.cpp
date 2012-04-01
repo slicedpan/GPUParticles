@@ -12,6 +12,7 @@
 #include "VBOMesh.h"
 #include <cstdlib>
 #include <math.h>
+#include "Colours.h"
 
 bool running = true;
 bool limitFPS = true;
@@ -37,15 +38,23 @@ VBOMesh* teapotMesh;
 int width = 1280;
 int height = 720;
 
-unsigned int lastParticle = 0;
-unsigned int particlesPerFrame = 2000;
+struct ParticleTypeData
+{
+	float t1, t2, t3;
+	float color1[3];
+	float color2[3];
+	float color3[3];
+};
 
 double elapsedTime = 0.0;
 
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 1536;
+int rootParticleNum = 192;
+
+unsigned int lastParticle = 0;
+unsigned int particlesPerFrame = rootParticleNum * rootParticleNum / 300;
 
 FPSCamera* camera;
 CameraController* controller;
@@ -71,6 +80,10 @@ GLuint texID;
 GLuint colorTex;
 GLuint velTex;
 GLuint maskTex;
+GLuint typeTex;
+
+unsigned int numTypes = 4;
+
 BasicTexture* noiseTex;
 
 Mat4 teapotTransform;
@@ -249,6 +262,32 @@ void CreateTextures()
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, rootParticleNum, rootParticleNum, 0, GL_RGB, GL_FLOAT, data);
 
 	free(data);
+	ParticleTypeData* typeData = (ParticleTypeData*)malloc(sizeof(ParticleTypeData) * numTypes);
+	float* fptr = (float*)typeData;
+	for (int i = 0; i < numTypes * 12; ++i)
+	{
+		*(fptr + i) = 0.0;
+	}
+
+	typeData[0].t1 = 1.0;
+	typeData[0].t2 = 0.0;
+	typeData[0].t3 = 0.0;
+
+	Colours::Copy(typeData[0].color1, Colours::Red());
+	Colours::Copy(typeData[0].color2, Colours::White());
+	Colours::Copy(typeData[0].color3, Colours::Blue());
+
+	Colours::Copy(&typeData[1].t1, Colours::Green());
+	Colours::Copy(typeData[1].color1, Colours::Green());
+	Colours::Copy(typeData[1].color2, Colours::Cyan());
+	Colours::Copy(typeData[1].color3, Colours::Blue());
+
+	glGenTextures(1, &typeTex);
+	glBindTexture(GL_TEXTURE_2D, typeTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, numTypes, 12, 0, GL_RGB, GL_FLOAT, typeData);
+	
 }
 
 void LoadTexture()
@@ -437,7 +476,7 @@ void display()
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
+		glBindTexture(GL_TEXTURE_2D, typeTex);
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
