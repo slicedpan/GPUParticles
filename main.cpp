@@ -57,13 +57,11 @@ double elapsedTime = 0.0;
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 256;
-<<<<<<< HEAD
-=======
+int rootParticleNum = 384;
 
 unsigned int lastParticle = 0;
-unsigned int particlesPerFrame = rootParticleNum * rootParticleNum / (60 * 30);
->>>>>>> ea0e592139504a26d470130a8479cef46c9be74e
+unsigned int particlesPerFrame = rootParticleNum * rootParticleNum / (30 * 30);
+
 
 FPSCamera* camera;
 CameraController* controller;
