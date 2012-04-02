@@ -22,7 +22,7 @@ void main()
 	pos.x -= 1.0;
 	pos.y -= 1.0;	
 
-	colourValue = float(currentNum % 64) / 64.0;	
+	colourValue = currentNum;	
 	
 	gl_Position = vec4(pos.x + coord.x * pixSize.x, pos.y + coord.y * pixSize.y, 0.0, 1.0);
 } 
