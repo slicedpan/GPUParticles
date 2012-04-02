@@ -8,11 +8,11 @@ uniform mat4 Projection;
 uniform mat4 World;
 
 smooth out vec3 out_normal;
-smooth out vec3 worldPos;
+smooth out float depth;
 
 void main()
 {			
 	gl_Position = Projection * View * World * vec4(position, 1.0);
-	worldPos = position;
 	out_normal = normal;
+	depth = gl_Position.z;
 } 

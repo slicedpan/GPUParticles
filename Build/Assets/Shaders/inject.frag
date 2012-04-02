@@ -21,6 +21,6 @@ void main()
 	
 	out_position.xyz = position + velNoise * 0.06;
 	out_lastPosition.xyz = position - velocity + velNoise * 0.05;
-	out_position.a = colourValue;
-	out_lastPosition.a = maxLifeTime * 2.0;
+	out_position.a = mod(colourValue * velNoise.x + velNoise.y * 10.0, 256.0) ;
+	out_lastPosition.a = 0.0;
 }

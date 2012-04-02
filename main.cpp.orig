@@ -8,17 +8,17 @@
 #include <FPSCamera\CameraController.h>
 #include "FrameBufferObject.h"
 #include "QuadDrawer.h"
+<<<<<<< HEAD
+=======
 #include "stb_image.h"
-#include "VBOMesh.h"
+>>>>>>> 66a6eb43448b6fbbc94295320d48502bdcd13964
 #include <cstdlib>
 #include <math.h>
-#include "Colours.h"
 
 bool running = true;
 bool limitFPS = true;
 bool simulate = false;
 bool drawFBOS = false;
-bool particleDepthWrite = false;
 
 double avgSleepTime;
 
@@ -34,33 +34,18 @@ unsigned int vertexBuf;
 unsigned int indexBuf;
 unsigned int vaoID;
 
-VBOMesh* teapotMesh;
+int width = 800;
+int height = 600;
 
-int width = 1280;
-int height = 720;
-
-struct ParticleTypeData
-{
-	float t1, t2, t3, t4;
-	float color1[4];
-	float color2[4];
-	float color3[4];
-};
-
-ParticleTypeData* typeData;
-
-GLuint lavaTypeTex;
-GLuint plasmaTypeTex;
+unsigned int lastParticle = 0;
+unsigned int particlesPerFrame = 200;
 
 double elapsedTime = 0.0;
 
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 1536;
-
-unsigned int lastParticle = 0;
-unsigned int particlesPerFrame = rootParticleNum * rootParticleNum / (60 * 30);
+int rootParticleNum = 196;
 
 FPSCamera* camera;
 CameraController* controller;
@@ -71,9 +56,6 @@ Shader* verlet;
 Shader* addTex;
 Shader* initialiseParticles;
 Shader* injectParticle;
-Shader* basic;
-Shader* renderToGBuffer;
-Shader* initParticleBuffer;
 
 ShaderManager* shaderManager;
 
@@ -87,19 +69,17 @@ GLuint texID;
 GLuint colorTex;
 GLuint velTex;
 GLuint maskTex;
-GLuint typeTex;
-
-unsigned int numTypes = 256;
-
 BasicTexture* noiseTex;
-
-Mat4 teapotTransform;
 
 float particleQuadSize = 0.05;
 
 double lastTime;
 
+<<<<<<< HEAD
+
+=======
 Vec2 bufPixSize(1.0f / rootParticleNum, 1.0f / rootParticleNum);
+>>>>>>> 66a6eb43448b6fbbc94295320d48502bdcd13964
 
 float RandomFloat()
 {
@@ -136,14 +116,14 @@ void CreateFBOs()
 {
 	for (int i = 0; i < 2; ++i)
 	{
-		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGBA32F, GL_TEXTURE_2D);
+		fbos[i] = new FrameBufferObject(rootParticleNum, rootParticleNum, 0, 0, GL_RGBA16F, GL_TEXTURE_2D);
 		fbos[i]->AttachTexture("position", GL_NEAREST, GL_NEAREST);
 		fbos[i]->AttachTexture("last", GL_NEAREST, GL_NEAREST);
 		if (!fbos[i]->CheckCompleteness())
 			throw;
 	}
 }
-	
+
 float top = 1.0f;
 float right = 1.0f;
 
@@ -154,7 +134,6 @@ void setup()
 	camera->Position[2] = 5.0f;
 	camera->Position[1] = 0.5f;
 	camera->Position[0] = 0.5f;
-	camera->SetAspectRatio((float)width / (float)height);
 	controller = new CameraController();
 	controller->SetCamera(camera);
 	controller->MaxSpeed = 0.01;
@@ -173,36 +152,16 @@ void setup()
 	initialiseParticles = new Shader("Assets/Shaders/copy.vert", "Assets/Shaders/copyToFbo.frag", "Particle Initialisation");
 	injectParticle = new Shader("Assets/Shaders/inject.vert", "Assets/Shaders/inject.frag", "Particle Inject");
 	noiseTex = new BasicTexture("Assets/Textures/rgbnoise.png");
-	basic = new Shader("Assets/Shaders/basic.vert", "Assets/Shaders/basic.frag", "Basic");
-	renderToGBuffer = new Shader("Assets/Shaders/gbuf.vert", "Assets/Shaders/gbuf.frag", "Render to GBuffer");
-	initParticleBuffer = new Shader("Assets/Shaders/copy.vert", "Assets/Shaders/init.frag", "Initialise Particle Buffer");
-	teapotMesh = new VBOMesh("Assets/Models/box.obj", false, true);
-	teapotMesh->Load();
 	noiseTex->Load();
-	glBindTexture(GL_TEXTURE_2D, noiseTex->GetId());
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glBindTexture(GL_TEXTURE_2D, 0);
 	ShaderManager::GetSingletonPtr()->CompileShaders();
 	CreateFBOs();
 	CreateVAO();
 	CreateTextures();	
 	LoadTexture();
 	SetStaticUniforms();
-
-	fbos[currentBuf]->Bind();
-	initParticleBuffer->Use();
-	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0));
-	fbos[currentBuf]->Unbind();
-
-	teapotTransform.MakeHScale(Vec3(10.0, 0.1, 10.0));	
-	teapotTransform *= HTrans4(Vec3(0.0f, -0.1f, 0.0f));
+	
 	memset(keyState, 0, sizeof(bool) * 256);
 	memset(lastKeyState, 0, sizeof(bool) * 256);	
-
-	int vstexunits;
-	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &vstexunits);
-	printf("max tex units in VS: %d\n", vstexunits);
 }
 
 void Simulate()
@@ -217,14 +176,9 @@ void Simulate()
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
 
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, noiseTex->GetId());
-
 	verlet->Use();
 	verlet->Uniforms("timeElapsed").SetValue((float)elapsedTime);
 	verlet->Uniforms("timeElapsedSquared").SetValue((float)(elapsedTime * elapsedTime));
-	verlet->Uniforms("viewProj").SetValue(camera->GetViewTransform() * camera->GetProjectionMatrix());
-	verlet->Uniforms("noiseTex").SetValue(2);
 
 	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
 
@@ -239,13 +193,10 @@ void CopyTexToFBO()
 	glBindTexture(GL_TEXTURE_2D, texID);	
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, velTex);
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, noiseTex->GetId());
 	
 	initialiseParticles->Use();
 	initialiseParticles->Uniforms("baseTex").SetValue(0);
 	initialiseParticles->Uniforms("velocityTex").SetValue(1);	
-	initialiseParticles->Uniforms("noiseTex").SetValue(2);
 
 	fbos[currentBuf]->Bind();
 	QuadDrawer::DrawQuad(Vec2(-1.0, -1.0), Vec2(1.0, 1.0), bufPixSize);
@@ -255,16 +206,11 @@ void CopyTexToFBO()
 
 void CreateTextures()
 {
-
-	//Position Texture;
-	int numVecs = rootParticleNum * rootParticleNum;
-	int numFloats = 3 * numVecs;
+	int numFloats = 3 * rootParticleNum * rootParticleNum;
 	float* data = (float*)malloc(sizeof(float) *numFloats);
-	for (int i = 0; i < numVecs; ++i)
+	for (int i = 0; i < numFloats; ++i)
 	{
-		Vec3 position = randomVec(RandomFloat() / 2.0f);
-		position[1] += 5.0f;
-		memcpy(data + (i * 3), position.Ref(), sizeof(float) * 3);
+		data[i] = RandomFloat();
 	}
 	glGenTextures(1, &texID);
 	glBindTexture(GL_TEXTURE_2D, texID);
@@ -272,11 +218,9 @@ void CreateTextures()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, rootParticleNum, rootParticleNum, 0, GL_RGB, GL_FLOAT, data);
 
-	for (int i = 0; i < numVecs; ++i)
+	for (int i = 0; i < numFloats; ++i)
 	{
-		Vec3 velocity = -randomVec(RandomFloat() * 0.001f);
-		velocity[1] += RandomFloat() * 0.02f - 0.01f;
-		memcpy(data + (i * 3), velocity.Ref(), sizeof(float) * 3);
+		data[i] = (RandomFloat() - 0.5f) / 10.0f;
 	}
 	glGenTextures(1, &velTex);
 	glBindTexture(GL_TEXTURE_2D, velTex);
@@ -284,82 +228,25 @@ void CreateTextures()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, rootParticleNum, rootParticleNum, 0, GL_RGB, GL_FLOAT, data);
 
-	for (int i = 0; i < numVecs; ++i)
+	for (int i = 0; i < rootParticleNum * rootParticleNum; ++i)
 	{
 		float f  = RandomFloat();
 		Vec3 color = f * color1 + (1 - f) * color2;
 		memcpy(data + (i * 3), color.Ref(), sizeof(float) * 3);
 	}
-	glGenTextures(1, &colorTex);
+	glGenTextures(1, & colorTex);
 	glBindTexture(GL_TEXTURE_2D, colorTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, rootParticleNum, rootParticleNum, 0, GL_RGB, GL_FLOAT, data);
 
 	free(data);
-	typeData = (ParticleTypeData*)malloc(sizeof(ParticleTypeData) * numTypes);
-	float* fptr = (float*)typeData;
-	for (int i = 0; i < numTypes * 16; ++i)
-	{
-		*(fptr + i) = 0.0;
-	}
-
-	for (int i = 0; i < numTypes; ++i)
-	{
-		typeData[i].t1 = 5.0 + RandomFloat();
-		typeData[i].t2 = 7.0 + RandomFloat();
-		typeData[i].t3 = 8.0 + RandomFloat();
-		typeData[i].t4 = 40.0 + (RandomFloat() * 10.0f) - 5.0f;
-		Colours::Copy4(typeData[i].color1, Colours::Lerp(Colours::Red(), Colours::Yellow(), RandomFloat()));
-		Colours::Copy4(typeData[i].color2, Colours::Lerp(Colours::Red(), Colours::Yellow(), RandomFloat()));
-		Colours::Copy4(typeData[i].color3, Colours::White());
-	}
-
-	glGenTextures(1, &lavaTypeTex);
-	glBindTexture(GL_TEXTURE_2D, lavaTypeTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 4, numTypes, 0, GL_RGBA, GL_FLOAT, typeData);
-	typeTex = lavaTypeTex;
-
-	for (int i = 0; i < numTypes * 16; ++i)
-	{
-		*(fptr + i) = 0.0;
-	}
-
-	Vec4 col1 = Colours::FromByte(124, 194, 247, 255);
-	Vec4 col2 = Colours::FromByte(123, 248, 244, 255);
-	Vec4 col3 = Colours::FromByte(106,225,249, 255);
-
-	for (int i = 0; i < numTypes; ++i)
-	{
-		typeData[i].t1 = 5.0 + RandomFloat();
-		typeData[i].t2 = 7.0 + RandomFloat();
-		typeData[i].t3 = 8.0 + RandomFloat();
-		typeData[i].t4 = 30.0 + (RandomFloat() * 5.0f) - 2.5f;
-		Colours::Copy4(typeData[i].color1, Colours::Lerp(col1, col2, RandomFloat()));
-		Colours::Copy4(typeData[i].color2, Colours::Lerp(col2, col1, RandomFloat()));
-		Colours::Copy4(typeData[i].color3, Colours::Lerp(col3, Colours::White(), RandomFloat()));
-	}
-
-	glGenTextures(1, &plasmaTypeTex);
-	glBindTexture(GL_TEXTURE_2D, plasmaTypeTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 4, numTypes, 0, GL_RGBA, GL_FLOAT, typeData);
-
-	free(typeData);
-	
 }
 
 void LoadTexture()
 {
 	int imgWidth, imgHeight, imgComps;
 	unsigned char* data = stbi_load("Assets/Textures/particlemask.png", &imgWidth, &imgHeight, &imgComps, 4);
-	if (!data)
-	{
-		printf("Could not load mask image");
-	}
 	unsigned char* newData = (unsigned char*)malloc(sizeof(unsigned char) * imgWidth * imgHeight);
 	for (int i = 0; i < imgWidth; ++i)
 	{
@@ -375,7 +262,7 @@ void LoadTexture()
 	glBindTexture(GL_TEXTURE_2D, maskTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_RED, GL_UNSIGNED_BYTE, newData);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, imgWidth, imgHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, newData);
 	stbi_image_free(data);
 	free(newData);
 }
@@ -390,15 +277,13 @@ void SetStaticUniforms()
 	particleRenderer->Use();
 	particleRenderer->Uniforms("positionTex").SetValue(0);
 	particleRenderer->Uniforms("maskTex").SetValue(1);
-	particleRenderer->Uniforms("lastPositionTex").SetValue(3);
+	particleRenderer->Uniforms("lastPositionTex").SetValue(2);
 	particleRenderer->Uniforms("rows").SetValue(rootParticleNum);
 	particleRenderer->Uniforms("maxLifeTime").SetValue(10.0f);
-	particleRenderer->Uniforms("particleTypeTex").SetValue(2);
 
 	verlet->Use();
 	verlet->Uniforms("posTex").SetValue(0);
 	verlet->Uniforms("lastPosTex").SetValue(1);
-	verlet->Uniforms("gBuf").SetValue(2);
 }
 
 void InjectParticles()
@@ -408,9 +293,9 @@ void InjectParticles()
 	glBindTexture(GL_TEXTURE_2D, noiseTex->GetId());
 	injectParticle->Use();	
 	injectParticle->Uniforms("particleNum").SetValue((int)lastParticle);
-	injectParticle->Uniforms("position").SetValue(Vec3(0.0f, 0.5f, 4.0f) + randomVec(0.01f));
-	injectParticle->Uniforms("velocity").SetValue(Vec3(0.0f, 0.04f, -0.02f) + randomVec(0.002f));
-	injectParticle->Uniforms("maxLifeTime").SetValue(30.0f);	
+	injectParticle->Uniforms("position").SetValue(Vec3(0.0f, 0.5f, 1.0f) + randomVec(0.01f));
+	injectParticle->Uniforms("velocity").SetValue(Vec3(0.05f, 0.02f, 0.0f) + randomVec(0.001f));
+	injectParticle->Uniforms("maxLifeTime").SetValue(10.0f);	
 	glBindVertexArray(vaoID);
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0, particlesPerFrame);
 	glBindVertexArray(0);
@@ -461,18 +346,19 @@ void update()
 	controller->ChangeYaw(-elapsedTime * dX);
 	dY = 0;
 	dX = 0;
-	
+
 }
 
 void display()
 {
-	glEnable(GL_DEPTH_TEST);
-	glDepthMask(GL_TRUE);
+
 	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClearDepth(1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	
+	if (simulate)
+	{
+		Simulate();
+	}
 	
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -495,35 +381,20 @@ void display()
 	glVertex3f(0.0, 0.0, 0.0);
 	glVertex3f(0.0, 0.0, 1.0);
 	glEnd();
-
-	basic->Use();
-	basic->Uniforms("World").SetValue(teapotTransform);
-	basic->Uniforms("View").SetValue(camera->GetViewTransform());
-	basic->Uniforms("Projection").SetValue(camera->GetProjectionMatrix());
-	teapotMesh->Draw();
-
-	if (simulate)
-	{
-		Simulate();
-	}		
-
+	
 	glBindVertexArray(vaoID);	
 	particleRenderer->Use();
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(0));
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, maskTex);
-	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, typeTex);
+	glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(1));
 	
 	particleRenderer->Uniforms("viewProj").SetValue(camera->GetViewTransform() * camera->GetProjectionMatrix());
 	particleRenderer->Uniforms("quadSize").SetValue(particleQuadSize);
 
 	glEnable(GL_BLEND);
-	if (!particleDepthWrite)
-		glDepthMask(GL_FALSE);	
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0, rootParticleNum * rootParticleNum);
 	glBindVertexArray(0);
@@ -531,18 +402,36 @@ void display()
 
 	if (drawFBOS)
 	{
-		glDisable(GL_DEPTH_TEST);
-	
+
 		copyTex->Use();
 		copyTex->Uniforms("baseTex").SetValue(0);
 
+<<<<<<< HEAD
+	copyTex->Use();
+	copyTex->Uniforms("baseTex").SetValue(0);
+	copyTex->Uniforms("pixSize").SetValue(Vec2(1.0 / rootParticleNum, 1.0 / rootParticleNum));
+
+	/*glBegin(GL_QUADS);
+	glTexCoord2f(0.0, 0.0);
+	glVertex2f(0.0, 0.0);
+	glTexCoord2f(0.0, 1.0);
+	glVertex2f(0.0, 1.0);
+	glTexCoord2f(1.0, 1.0);
+	glVertex2f(1.0, 1.0);
+	glTexCoord2f(1.0, 0.0);
+	glVertex2f(1.0, 0.0);
+	glEnd();*/
+
+	//QuadDrawer::DrawQuad(Vec2(1.0, 1.0), Vec2(0.0, 0.0));
+=======
 		glActiveTexture(GL_TEXTURE0);
 
 		glBindTexture(GL_TEXTURE_2D, fbos[currentBuf]->GetTexture(0));	
+>>>>>>> 66a6eb43448b6fbbc94295320d48502bdcd13964
 
 		QuadDrawer::DrawQuad(Vec2(-0.4, -1.0), Vec2(0.1, -0.5));		
 
-		glBindTexture(GL_TEXTURE_2D, typeTex);
+		glBindTexture(GL_TEXTURE_2D, maskTex); //fbos[currentBuf]->GetTexture(1));
 
 		QuadDrawer::DrawQuad(Vec2(0.2, -1.0), Vec2(0.7, -0.5));
 	}
@@ -625,22 +514,6 @@ void KeyboardHandler(int keyCode, int state)
 			particleQuadSize += 0.001;
 		if (keyCode == GLFW_KEY_DOWN)
 			particleQuadSize -= 0.001;
-		if (keyCode == 'Q')
-			particleDepthWrite = !particleDepthWrite;
-		if (keyCode == 'K')
-		{
-			if (typeTex == lavaTypeTex)
-				typeTex = plasmaTypeTex;
-			else
-				typeTex = lavaTypeTex;
-		}
-	}
-	if (keyCode == GLFW_KEY_LSHIFT)
-	{
-		if (state == GLFW_PRESS)
-			controller->MaxSpeed = 0.35f;
-		else
-			controller->MaxSpeed = 0.01f;
 	}
 }
 
@@ -669,8 +542,10 @@ int main(int argc, char**argv)
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
 	glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 3);
 
-	if (!glfwOpenWindow(width, height, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
-		return 1;	
+	if (!glfwOpenWindow(800, 600, 8, 8, 8, 8, 24, 8, GLFW_WINDOW))
+		return 1;
+
+	
 
 	glfwGetGLVersion(&glMajorVersion, &glMinorVersion, &glRev);
 
