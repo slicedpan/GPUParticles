@@ -42,7 +42,7 @@ double elapsedTime = 0.0;
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 16;
+int rootParticleNum = 256;
 
 FPSCamera* camera;
 CameraController* controller;
