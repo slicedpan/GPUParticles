@@ -57,7 +57,7 @@ double elapsedTime = 0.0;
 bool keyState[256];
 bool lastKeyState[256];
 
-int rootParticleNum = 1536;
+int rootParticleNum = 256;
 
 unsigned int lastParticle = 0;
 unsigned int particlesPerFrame = rootParticleNum * rootParticleNum / (60 * 30);
